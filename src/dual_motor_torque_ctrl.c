@@ -362,6 +362,17 @@ QepIndexWatchdog_t gQepIndexWatchdog[2] = {
     {.isInitialized = false, .indexError_counts = 0}};
 
 // **************************************************************************
+// registers and queues to hold past encoder position and acceleration values
+
+float gPastMotorPos[2][3];
+
+float gEncAccQueue[2][WINDOW_SIZE];
+uint32_t gEncAccQueueIndex[2];
+float gEncAccRolling[2];
+
+uint32_t index;
+
+// **************************************************************************
 // the functions
 
 // Little helper function
@@ -649,6 +660,27 @@ void main(void) {
 
     // enable the system by default
     gMotorVars[HAL_MTR1].Flag_enableSys = true;
+
+    // initialize queue for past encoder values
+    gPastMotorPos[HAL_MTR1][0] = 0.0;
+    gPastMotorPos[HAL_MTR1][1] = 0.0;
+    gPastMotorPos[HAL_MTR1][2] = 0.0;
+    gPastMotorPos[HAL_MTR2][0] = 0.0;
+    gPastMotorPos[HAL_MTR2][1] = 0.0;
+    gPastMotorPos[HAL_MTR2][2] = 0.0;
+
+    // initialize queue for past encoder acceleration values
+    for (index = 0; index < WINDOW_SIZE; index++)
+    {
+        gEncAccQueue[HAL_MTR1][index] = 0.0;
+        gEncAccQueue[HAL_MTR2][index] = 0.0;
+    }
+    gEncAccQueueIndex[HAL_MTR1] = 0;
+    gEncAccQueueIndex[HAL_MTR2] = 0;
+
+    // store rolling average values of encoder acceleration
+    gEncAccRolling[HAL_MTR1] = 0.0;
+    gEncAccRolling[HAL_MTR2] = 0.0;
 
 #ifdef DRV8301_SPI
     // turn on the DRV8301 if present
@@ -1092,9 +1124,11 @@ interrupt void can1_ISR() {
                 break;
             case CAN_CMD_SEND_VELOCITY:
                 setCanMboxStatus(CAN_MBOX_OUT_SPEED, cmd.value);
+                setCanMboxStatus(CAN_MBOX_OUT_ACC, cmd.value);
                 break;
             case CAN_CMD_SEND_ADC6:
-                setCanMboxStatus(CAN_MBOX_OUT_ADC6, cmd.value);
+                // this is no longer needed.
+                //setCanMboxStatus(CAN_MBOX_OUT_ADC6, cmd.value);
                 break;
             case CAN_CMD_SEND_ENC_INDEX:
                 setCanMboxStatus(CAN_MBOX_OUT_ENC_INDEX, cmd.value);
@@ -1103,8 +1137,8 @@ interrupt void can1_ISR() {
                 if (cmd.value) {
                     gEnabledCanMessages =
                         (CAN_MBOX_OUT_Iq | CAN_MBOX_OUT_ENC_POS |
-                         CAN_MBOX_OUT_SPEED | CAN_MBOX_OUT_ADC6 |
-                         CAN_MBOX_OUT_ENC_INDEX);
+                         CAN_MBOX_OUT_SPEED | CAN_MBOX_OUT_ENC_INDEX
+                         | CAN_MBOX_OUT_ACC);
                 } else {
                     gEnabledCanMessages = 0;
                 }
@@ -1282,8 +1316,31 @@ void setCanStatusMsg() {
     CAN_setStatusMsg(status);
 }
 
+_iq updateMotorAcc(const HAL_MtrSelect_e mtrNum, _iq position) {
+
+    float encAcc;
+
+    //Shift past motor positions
+    gPastMotorPos[mtrNum][0] = gPastMotorPos[mtrNum][1];
+    gPastMotorPos[mtrNum][1] = gPastMotorPos[mtrNum][2];
+    gPastMotorPos[mtrNum][2] = _IQtoF(position);
+
+    encAcc = (float_t) (gPastMotorPos[mtrNum][0] -
+            2 * gPastMotorPos[mtrNum][1] + gPastMotorPos[mtrNum][2])
+            / (2 * PI * TIMER0_PERIOD_S * TIMER0_PERIOD_S);
+
+    gEncAccRolling[mtrNum] = gEncAccRolling[mtrNum] + (1.0 / WINDOW_SIZE)
+            * (encAcc - gEncAccQueue[mtrNum][gEncAccQueueIndex[mtrNum]]);
+    gEncAccQueue[mtrNum][gEncAccQueueIndex[mtrNum]] = encAcc;
+    gEncAccQueueIndex[mtrNum] = (gEncAccQueueIndex[mtrNum] + 1) % WINDOW_SIZE;
+
+    // return finite difference approximation of acceleration
+    return _IQ(gEncAccRolling[mtrNum]);
+
+}
+
 void setCanMotorData(const HAL_MtrSelect_e mtrNum) {
-    _iq current_iq, position, speed;
+    _iq current_iq, position, speed, acc;
     ST_Obj *st = (ST_Obj *)stHandle[mtrNum];
 
     // take last current measurement and convert to Ampere
@@ -1301,10 +1358,12 @@ void setCanMotorData(const HAL_MtrSelect_e mtrNum) {
     speed = _IQmpy(STPOSCONV_getVelocityFiltered(st->posConvHandle),
                    gSpeed_pu_to_krpm_sf[mtrNum]);
 
+    acc = updateMotorAcc(mtrNum, position);
+
     if (mtrNum == HAL_MTR1) {
-        CAN_setDataMotor1(current_iq, position, speed);
+        CAN_setDataMotor1(current_iq, position, speed, acc);
     } else {
-        CAN_setDataMotor2(current_iq, position, speed);
+        CAN_setDataMotor2(current_iq, position, speed, acc);
     }
 
     return;

@@ -59,11 +59,15 @@
 #define CAN_STATUSMSG_TRANS_FREQ_Hz 1
 
 #define TIMER0_FREQ_Hz CAN_TRANSMISSION_TIMER_FREQ_Hz
+#define TIMER0_PERIOD_S (1.0 / TIMER0_FREQ_Hz)
 
 #define QEP_MAX_INDEX_ERROR  (1./360.) * USER_MOTOR_ENCODER_LINES  // 1 degree
 
 #define POTI_RESULT1 ADC_ResultNumber_0
 #define POTI_RESULT2 ADC_ResultNumber_8
+
+#define PI 3.141592
+#define WINDOW_SIZE 10
 
 
 
@@ -111,6 +115,8 @@ void setupQepIndexInterrupt(HAL_Handle halHandle,
 		HAL_Handle_mtr halHandleMtr[2],
 		PIE_IntVec_t qep1IndexIsr,
 		PIE_IntVec_t qep2IndexIsr);
+
+void maybeSendCanStatusMsg();
 
 
 #endif /* SRC_MAIN_HELPER_H_ */

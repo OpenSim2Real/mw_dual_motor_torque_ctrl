@@ -206,6 +206,8 @@ void CAN_setupMboxes()
     ECanaMboxes.MBOX0.MSGID.all = (uint32_t)CAN_ID_COMMANDS << 18;
     ECanaMboxes.MBOX1.MSGID.all = (uint32_t)CAN_ID_IqRef << 18;
 
+    ECanaMboxes.MBOX9.MSGID.all = (uint32_t)CAN_ID_ACC << 18;
+
     // TODO: Don't use mbox0 for commands. Those commands should have highest
     // priority of all messages (needed to disable motor in case of some
     // failure), so it should get the highest priority receive mailbox).
@@ -235,6 +237,8 @@ void CAN_setupMboxes()
     ECanaMboxes.MBOX13.MSGCTRL.bit.DLC = 8;
     ECanaMboxes.MBOX14.MSGCTRL.bit.DLC = 8;
     ECanaMboxes.MBOX15.MSGCTRL.bit.DLC = 1;
+
+    ECanaMboxes.MBOX9.MSGCTRL.bit.DLC = 8;
 
 
 

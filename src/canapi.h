@@ -75,6 +75,7 @@ extern "C" {
 #define CAN_MBOX_OUT_SPEED      (uint32_t) 1 << 12
 #define CAN_MBOX_OUT_ADC6       (uint32_t) 1 << 11
 #define CAN_MBOX_OUT_ENC_INDEX  (uint32_t) 1 << 10
+#define CAN_MBOX_OUT_ACC        (uint32_t) 1 << 9
 #define CAN_MBOX_IN_COMMANDS    (uint32_t) 1 << 0
 #define CAN_MBOX_IN_IqRef       (uint32_t) 1 << 1
 
@@ -85,7 +86,8 @@ extern "C" {
 	| CAN_MBOX_OUT_ADC6 \
 	| CAN_MBOX_OUT_ENC_INDEX \
 	| CAN_MBOX_IN_COMMANDS \
-	| CAN_MBOX_IN_IqRef
+	| CAN_MBOX_IN_IqRef \
+	| CAN_MBOX_OUT_ACC
 //! \}
 
 
@@ -100,6 +102,8 @@ extern "C" {
 #define CAN_ID_SPEED      0x40
 #define CAN_ID_ADC6       0x50
 #define CAN_ID_ENC_INDEX  0x60
+
+#define CAN_ID_ACC        0x70
 //! \}
 
 
@@ -218,11 +222,12 @@ inline void CAN_setStatusMsg(CAN_StatusMsg_t statusmsg)
 //! \param encoder_position  Current position of the motor in mechanical
 //!                          revolutions (mrev).
 //! \param velocity  Velocity of the motor in krpm.
-inline void CAN_setDataMotor1(_iq current_iq, _iq position, _iq velocity)
+inline void CAN_setDataMotor1(_iq current_iq, _iq position, _iq velocity, _iq acc)
 {
 	ECanaMboxes.MBOX14.MDL.all = current_iq;
 	ECanaMboxes.MBOX13.MDL.all = position;
 	ECanaMboxes.MBOX12.MDL.all = velocity;
+	ECanaMboxes.MBOX9.MDL.all = acc;
 
 	return;
 }
@@ -236,11 +241,12 @@ inline void CAN_setDataMotor1(_iq current_iq, _iq position, _iq velocity)
 //!                          revolutions (mrev).
 //! \param velocity  Velocity of the motor in krpm.
 inline void CAN_setDataMotor2(_iq current_iq, _iq encoder_position,
-		_iq velocity)
+		_iq velocity, _iq acc)
 {
 	ECanaMboxes.MBOX14.MDH.all = current_iq;
 	ECanaMboxes.MBOX13.MDH.all = encoder_position;
 	ECanaMboxes.MBOX12.MDH.all = velocity;
+	ECanaMboxes.MBOX9.MDH.all = acc;
 
 	return;
 }
