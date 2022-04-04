@@ -707,7 +707,7 @@ void main(void) {
         while (!(gMotorVars[HAL_MTR1].Flag_enableSys)) {
             LED_run(halHandle);
 
-            // checkErrors();
+            checkErrors();
             maybeSendCanStatusMsg();
         }
 
@@ -1102,12 +1102,18 @@ interrupt void can1_ISR() {
         switch (cmd.id) {
             case CAN_CMD_ENABLE_SYS:  // enable system
                 gMotorVars[HAL_MTR1].Flag_enableSys = cmd.value;
+                gErrors.bit.qep_error = 0;
+                gErrors.bit.can_error = 0;
                 break;
             case CAN_CMD_ENABLE_MTR1:  // run motor 1
                 gMotorVars[HAL_MTR1].Flag_Run_Identify = cmd.value;
+                gErrors.bit.qep_error = 0;
+                gErrors.bit.can_error = 0;
                 break;
             case CAN_CMD_ENABLE_MTR2:  // run motor 2
                 gMotorVars[HAL_MTR2].Flag_Run_Identify = cmd.value;
+                gErrors.bit.qep_error = 0;
+                gErrors.bit.can_error = 0;
                 break;
             case CAN_CMD_ENABLE_VSPRING1:  // motor 1 enable spring
                 spring[HAL_MTR1].enabled = cmd.value;
@@ -1455,8 +1461,11 @@ void checkErrors() {
              gTimer0_stamp - gCanReceiveIqRefTimeout));
 
     //*** Encoder Error
-    gErrors.bit.qep_error = (checkEncoderError(gQepIndexWatchdog[0]) ||
-                             checkEncoderError(gQepIndexWatchdog[1]));
+    //gErrors.bit.qep_error = (checkEncoderError(gQepIndexWatchdog[0]) ||
+    //                         checkEncoderError(gQepIndexWatchdog[1]));
+
+    gErrors.bit.qep_error = checkEncoderError(gQepIndexWatchdog[0]);
+    gErrors.bit.can_error = checkEncoderError(gQepIndexWatchdog[1]);
 
     //*** POSCONV error
     gErrors.bit.posconv_error =
